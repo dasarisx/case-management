@@ -7,6 +7,7 @@ import {
   Post,
   Query,
   Res,
+  UseInterceptors,
 } from '@nestjs/common';
 import {
   ApiBody,
@@ -31,6 +32,8 @@ import { CasesService } from './cases.service';
 import { PdfService } from '../pdf/pdf.service';
 import { ApiPaginatedResponse } from '../common/decorators/api-paginated-response.decorator';
 import { CaseStageDto, CaseStatusDto } from './dto/cases.enums';
+import { CacheTTL } from '@nestjs/cache-manager';
+import { CasesCacheInterceptor } from '../common/interceptors/cases-cache.interceptor';
 
 @ApiTags('Cases')
 @Controller('api/cases')
@@ -64,18 +67,24 @@ export class CasesController {
   @ApiQuery({ name: 'page', required: false, type: Number })
   @ApiQuery({ name: 'limit', required: false, type: Number })
   @ApiPaginatedResponse(CaseListItemDto)
+  @UseInterceptors(CasesCacheInterceptor)
+  @CacheTTL(300)
   listCases(@Query() query: CasesQueryDto, @Query() pagination: PaginationDto) {
     return this.casesService.findAll(query, pagination);
   }
 
   @Get('kpi')
   @ApiOkResponse({ type: KpiResponseDto })
+  @UseInterceptors(CasesCacheInterceptor)
+  @CacheTTL(300)
   getKpi() {
     return this.casesService.getKpi();
   }
 
   @Get(':id')
   @ApiOkResponse({ type: CaseResponseDto })
+  @UseInterceptors(CasesCacheInterceptor)
+  @CacheTTL(300)
   getCase(@Param('id', ParseIntPipe) id: number) {
     return this.casesService.findOne(id);
   }

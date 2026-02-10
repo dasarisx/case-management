@@ -32,6 +32,10 @@ docker compose up --build
   - `USE_MIGRATIONS=true|false`
   - `SEED_ON_START=true|false`
 
+## Redis Cache
+- Redis is included in `docker-compose.yml` and used for caching `/api/cases`, `/api/cases/:id`, and `/api/cases/kpi` (TTL 300s).
+- Cache invalidation runs on case creation, assignment, and action log creation.
+
 ## Rules
 Rules are JSON-configured at:
 `apps/api/src/rules/delinquency-rules.json`

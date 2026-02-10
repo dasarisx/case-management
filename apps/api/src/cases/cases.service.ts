@@ -10,13 +10,24 @@ import { RulesService } from '../rules/rules.service';
 import { AddActionDto, CasesQueryDto, CreateCaseDto } from './dto';
 import { PaginationDto } from '../shared/dto/pagination.dto';
 import { Prisma } from '@prisma/client';
+import { Inject } from '@nestjs/common';
+import type Redis from 'ioredis';
+import { REDIS_CLIENT } from '../common/redis/redis.constants';
 
 @Injectable()
 export class CasesService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly rulesService: RulesService,
+    @Inject(REDIS_CLIENT) private readonly redis: Redis,
   ) {}
+
+  async invalidateCache() {
+    const keys = await this.redis.keys('cases:*');
+    if (keys.length > 0) {
+      await this.redis.del(...keys);
+    }
+  }
 
   async createCase(dto: CreateCaseDto) {
     try {
@@ -71,6 +82,7 @@ export class CasesService {
         },
       );
 
+      await this.invalidateCache();
       return this.toCaseResponse(created);
     } catch (error) {
       if (error instanceof HttpException) {
@@ -197,7 +209,7 @@ export class CasesService {
       throw new NotFoundException(`Case ${caseId} not found`);
     }
 
-    return this.prisma.actionLog.create({
+    const action = await this.prisma.actionLog.create({
       data: {
         caseId: caseRecord.id,
         type: dto.type,
@@ -205,6 +217,9 @@ export class CasesService {
         notes: dto.notes ?? null,
       },
     });
+
+    await this.invalidateCache();
+    return action;
   }
 
   async assignCase(caseId: number) {
@@ -253,6 +268,7 @@ export class CasesService {
       }
     });
 
+    await this.invalidateCache();
     return {
       caseId,
       stage: decision.stage ?? caseRecord.stage,
