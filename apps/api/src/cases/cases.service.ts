@@ -3,6 +3,7 @@ import {
   BadRequestException,
   InternalServerErrorException,
   NotFoundException,
+  HttpException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
 import { RulesService } from '../rules/rules.service';
@@ -72,7 +73,7 @@ export class CasesService {
 
       return this.toCaseResponse(created);
     } catch (error) {
-      if (error instanceof NotFoundException) {
+      if (error instanceof HttpException) {
         throw error;
       }
       throw new InternalServerErrorException('Failed to create case');
