@@ -1,0 +1,19 @@
+{
+  "name": "collections-manager",
+  "private": true,
+  "workspaces": [
+    "apps/*"
+  ],
+  "scripts": {
+    "dev": "concurrently -n api,web -c green,blue \"npm --workspace apps/api run start:dev\" \"npm --workspace apps/web run dev\"",
+    "build": "npm --workspace apps/api run build && npm --workspace apps/web run build",
+    "start": "concurrently -n api,web -c green,blue \"npm --workspace apps/api run start:prod\" \"npm --workspace apps/web run start\"",
+    "db:migrate": "prisma migrate dev",
+    "db:seed": "prisma db seed"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2",
+    "prisma": "^5.20.0",
+    "ts-node": "^10.9.2"
+  }
+}

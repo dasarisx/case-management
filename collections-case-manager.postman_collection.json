@@ -1,0 +1,64 @@
+{
+  "info": {
+    "name": "Collections Case Manager",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:3000/api" },
+    { "key": "caseId", "value": "1" }
+  ],
+  "item": [
+    {
+      "name": "Create Case",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": "{{baseUrl}}/cases",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"customerId\": 1,\n  \"loanId\": 1\n}"
+        }
+      }
+    },
+    {
+      "name": "List Cases",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/cases?status=OPEN&stage=HARD&dpdMin=8&dpdMax=30&assignedTo=SeniorAgent&page=1&limit=10"
+      }
+    },
+    {
+      "name": "Get Case",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/cases/{{caseId}}"
+      }
+    },
+    {
+      "name": "Add Action",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": "{{baseUrl}}/cases/{{caseId}}/actions",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"type\": \"CALL\",\n  \"outcome\": \"PROMISE_TO_PAY\",\n  \"notes\": \"Customer promised to pay on Friday\"\n}"
+        }
+      }
+    },
+    {
+      "name": "Assign Case",
+      "request": {
+        "method": "POST",
+        "url": "{{baseUrl}}/cases/{{caseId}}/assign"
+      }
+    },
+    {
+      "name": "KPI",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/cases/kpi"
+      }
+    }
+  ]
+}
