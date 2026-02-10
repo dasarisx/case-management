@@ -68,6 +68,7 @@ model Case {
   stage         CaseStage
   status        CaseStatus
   assignedTo    String?
+  version       Decimal       @default(0) @db.Decimal(10, 0)
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
 
@@ -78,6 +79,7 @@ model Case {
 
   @@index([status, stage, dpd])
   @@index([assignedTo])
+  @@unique([id, version])
 }
 
 model ActionLog {

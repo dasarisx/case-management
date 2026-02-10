@@ -4,6 +4,7 @@ import {
   InternalServerErrorException,
   NotFoundException,
   HttpException,
+  ConflictException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
 import { RulesService } from '../rules/rules.service';
@@ -16,6 +17,12 @@ import { REDIS_CLIENT } from '../common/redis/redis.constants';
 
 @Injectable()
 export class CasesService {
+  private readonly groupAssignments: Record<string, string> = {
+    Tier1: 'agent.tier1',
+    Tier2: 'agent.tier2',
+    Legal: 'legal.uae',
+  };
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly rulesService: RulesService,
@@ -57,6 +64,12 @@ export class CasesService {
         riskScore: customer.riskScore,
       });
 
+      const assignedTo =
+        decision.assignedTo ??
+        (decision.assignGroup
+          ? this.groupAssignments[decision.assignGroup]
+          : undefined);
+
       const created = await this.prisma.$transaction(
         async (tx: Prisma.TransactionClient) => {
         const createdCase = await tx.case.create({
@@ -66,7 +79,7 @@ export class CasesService {
             dpd,
             stage: decision.stage ?? 'SOFT',
             status: 'OPEN',
-            assignedTo: decision.assignedTo ?? null,
+            assignedTo: assignedTo ?? null,
           },
         });
 
@@ -223,50 +236,80 @@ export class CasesService {
   }
 
   async assignCase(caseId: number) {
-    const caseRecord = await this.prisma.case.findUnique({
+    const caseRecord = await this.prisma.case.findUniqueOrThrow({
       where: { id: caseId },
-      include: { customer: true },
+      select: {
+        id: true,
+        version: true,
+        dpd: true,
+        stage: true,
+        assignedTo: true,
+        customer: { select: { riskScore: true } },
+      },
     });
-
-    if (!caseRecord) {
-      throw new NotFoundException(`Case ${caseId} not found`);
-    }
 
     const decision = this.rulesService.evaluateRules({
       dpd: caseRecord.dpd,
       riskScore: caseRecord.customer.riskScore,
     });
 
-    const existingDecision = await this.prisma.ruleDecision.findFirst({
-      where: { caseId: caseRecord.id },
-      orderBy: { createdAt: 'desc' },
-    });
-
-    const shouldCreateDecision =
-      !existingDecision ||
-      existingDecision.reason !== decision.reason ||
-      JSON.stringify(existingDecision.matchedRules) !==
-        JSON.stringify(decision.matchedRules);
-
-    await this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
-      await tx.case.update({
-        where: { id: caseRecord.id },
-        data: {
-          stage: decision.stage ?? caseRecord.stage,
-          assignedTo: decision.assignedTo ?? caseRecord.assignedTo,
-        },
-      });
-
-      if (shouldCreateDecision) {
-        await tx.ruleDecision.create({
-          data: {
-            caseId: caseRecord.id,
-            matchedRules: decision.matchedRules,
-            reason: decision.reason,
+    try {
+      await this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+        const freshCase = await tx.case.findUnique({
+          where: {
+            id_version: {
+              id: caseId,
+              version: caseRecord.version,
+            },
           },
         });
+
+        if (!freshCase) {
+          throw new ConflictException('Version conflict - reload and retry');
+        }
+
+        const assignedTo =
+          decision.assignedTo ??
+          (decision.assignGroup
+            ? this.groupAssignments[decision.assignGroup]
+            : undefined);
+
+        await tx.case.update({
+          where: { id: caseId },
+          data: {
+            stage: decision.stage ?? caseRecord.stage,
+            assignedTo: assignedTo ?? caseRecord.assignedTo,
+            version: { increment: 1 },
+          },
+        });
+
+        const existingDecision = await tx.ruleDecision.findFirst({
+          where: { caseId: caseRecord.id },
+          orderBy: { createdAt: 'desc' },
+        });
+
+        const shouldCreateDecision =
+          !existingDecision ||
+          existingDecision.reason !== decision.reason ||
+          JSON.stringify(existingDecision.matchedRules) !==
+            JSON.stringify(decision.matchedRules);
+
+        if (shouldCreateDecision) {
+          await tx.ruleDecision.create({
+            data: {
+              caseId: caseRecord.id,
+              matchedRules: decision.matchedRules,
+              reason: decision.reason,
+            },
+          });
+        }
+      });
+    } catch (error: any) {
+      if (error?.code === 'P2025') {
+        throw new ConflictException('Case modified elsewhere');
       }
-    });
+      throw error;
+    }
 
     await this.invalidateCache();
     return {

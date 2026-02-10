@@ -51,13 +51,36 @@
       "request": {
         "method": "POST",
         "url": "{{baseUrl}}/cases/{{caseId}}/assign"
-      }
+      },
+      "response": [
+        {
+          "name": "Conflict",
+          "originalRequest": {
+            "method": "POST",
+            "header": [],
+            "url": "{{baseUrl}}/cases/{{caseId}}/assign"
+          },
+          "status": "Conflict",
+          "code": 409,
+          "header": [
+            { "key": "Content-Type", "value": "application/json" }
+          ],
+          "body": "{\n  \"statusCode\": 409,\n  \"message\": [\"Version conflict - reload and retry\"],\n  \"error\": \"Conflict\"\n}"
+        }
+      ]
     },
     {
       "name": "KPI",
       "request": {
         "method": "GET",
         "url": "{{baseUrl}}/cases/kpi"
+      }
+    },
+    {
+      "name": "PDF Notice",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/cases/{{caseId}}/notice.pdf"
       }
     }
   ]

@@ -35,6 +35,14 @@ docker compose up --build
 ## Redis Cache
 - Redis is included in `docker-compose.yml` and used for caching `/api/cases`, `/api/cases/:id`, and `/api/cases/kpi` (TTL 300s).
 - Cache invalidation runs on case creation, assignment, and action log creation.
+- Cache keys:
+  - `cases:list:${hash(filters)}:page:${page}`
+  - `kpi:dashboard`
+  - `case:${id}`
+
+## Optimistic Locking
+- `Case.version` is used to detect concurrent updates in `POST /api/cases/:id/assign`.
+- Conflicts return HTTP 409 with `Version conflict - reload and retry`.
 
 ## Rules
 Rules are JSON-configured at:

@@ -71,7 +71,14 @@ export default function CaseDetailsPage() {
       await apiFetch(`/cases/${caseId}/assign`, { method: 'POST' });
       await mutate();
     } catch (err) {
-      setActionError('Failed to run assignment.');
+      const message =
+        err instanceof Error ? err.message.toLowerCase() : '';
+      if (message.includes('conflict')) {
+        setActionError('Conflict detected. Reloading...');
+        mutate();
+      } else {
+        setActionError('Failed to run assignment.');
+      }
     } finally {
       setIsAssigning(false);
     }
