@@ -59,16 +59,6 @@ export class CasesService {
       }
 
       const dpd = this.computeDpd(loan.dueDate);
-      const decision = this.rulesService.evaluateRules({
-        dpd,
-        riskScore: customer.riskScore,
-      });
-
-      const assignedTo =
-        decision.assignedTo ??
-        (decision.assignGroup
-          ? this.groupAssignments[decision.assignGroup]
-          : undefined);
 
       const created = await this.prisma.$transaction(
         async (tx: Prisma.TransactionClient) => {
@@ -77,17 +67,9 @@ export class CasesService {
             customerId,
             loanId,
             dpd,
-            stage: decision.stage ?? 'SOFT',
+            stage: 'SOFT',
             status: 'OPEN',
-            assignedTo: assignedTo ?? null,
-          },
-        });
-
-        await tx.ruleDecision.create({
-          data: {
-            caseId: createdCase.id,
-            matchedRules: decision.matchedRules,
-            reason: decision.reason,
+            assignedTo: null,
           },
         });
 
